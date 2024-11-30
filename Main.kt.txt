@@ -1,0 +1,80 @@
+import io.ktor.http.*
+import io.ktor.serialization.kotlinx.json.*
+import io.ktor.server.application.*
+import io.ktor.server.engine.*
+import io.ktor.server.netty.*
+import io.ktor.server.plugins.contentnegotiation.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import java.text.DecimalFormat
+
+@Serializable
+data class Participante(
+    val nome: String,
+    val pesoSemana1: Double?,
+    val pesoSemana2: Double?,
+    val pesoSemana3: Double?,
+    val pesoSemana4: Double?,
+    val pesoSemana5: Double?
+) {
+    val perdaPeso: Double = if (pesoSemana1 != null) {
+        val pesoFinal = pesoSemana5 ?: pesoSemana4 ?: pesoSemana3 ?: pesoSemana2 ?: pesoSemana1
+        pesoSemana1 - pesoFinal
+    } else {
+        0.0
+    }
+
+    val penalidade: Int = listOf(pesoSemana1, pesoSemana2, pesoSemana3, pesoSemana4, pesoSemana5).count { it == null }
+
+    val perdaTotal: Double = if (pesoSemana1 != null && pesoSemana5 != null) {
+        pesoSemana1 - pesoSemana5
+    } else {
+        0.0
+    }
+}
+
+@Serializable
+data class Resultado(
+    val lugar: Int,
+    val participante: Participante,
+    val perdaPeso: String // Altera para String para formatar o valor
+)
+
+fun calcularParticipantes(): List<Resultado> {
+    val participantes = listOf(
+        Participante("Renan", 104.15, 102.40, null, 102.85, pesoSemana5 = 102.70),
+        Participante("Otavio", 117.20, 113.95, null, 114.60, pesoSemana5 = null),
+        Participante("Lucas", 119.25, 116.05, 116.70, 115.60, pesoSemana5 = 117.15),
+        Participante("Sergio", 120.75, 116.75, 119.30, 121.25, pesoSemana5 = 121.95)
+    )
+
+    val decimalFormat = DecimalFormat("#.00") // Formato para duas casas decimais
+
+    val classificados = participantes.sortedWith(compareBy({ it.penalidade }, { -it.perdaPeso }))
+
+    return classificados.mapIndexed { index, participante ->
+        Resultado(
+            lugar = index + 1,
+            participante = participante,
+            perdaPeso = decimalFormat.format(participante.perdaPeso) // Formata a perda de peso
+        )
+    }
+}
+
+fun main() {
+    embeddedServer(Netty, port = 8080) {
+        install(ContentNegotiation) {
+            json(Json { prettyPrint = true })
+        }
+
+        routing {
+            get("/participantes") {
+                val resultados = calcularParticipantes()
+                // Retorna a lista de resultados que já é serializável
+                call.respond(HttpStatusCode.OK, resultados)
+            }
+        }
+    }.start(wait = true)
+}
