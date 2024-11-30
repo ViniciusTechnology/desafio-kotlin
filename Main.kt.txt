@@ -58,7 +58,7 @@ fun calcularParticipantes(): List<Resultado> {
         Resultado(
             lugar = index + 1,
             participante = participante,
-            perdaPeso = decimalFormat.format(participante.perdaPeso) // Formata a perda de peso
+            perdaPeso = decimalFormat.format(participante.perdaPeso) // Formata a Perda de peso
         )
     }
 }
